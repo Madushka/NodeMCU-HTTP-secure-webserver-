@@ -1,0 +1,88 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <Hash.h>
+
+#ifndef STASSID
+#define STASSID "SKYbroadband472A"
+#define STAPSK  "250002138"
+#endif
+
+const char* ssid = STASSID;
+const char* password = STAPSK;
+
+ESP8266WebServer server(80);
+
+const char* www_username = "admin";
+const char* www_password = "3b5945e9dcd07e66e57a8c27a477f37cdfe5bbc1";
+
+String www_token = "";
+bool gpio_value = LOW;
+
+
+IPAddress allowed(192, 168, 0, 16);
+
+
+static const char layoutPage[] = " \
+<!DOCTYPE HTML><html><header> \
+  <title>Weather Stations around the world</title> \
+  <style> \
+  body { font-family: Calibri; text-align: center;} \
+  .state-low { color: red } \
+  .state-high { color: darkgreen } \
+  .table { width: 75%; margin: auto; line-height: 28px;} \
+  .table td {text-align: center; background-color: #ddd;} \
+</style> \
+</header><body> \
+<h1>Weather Stations around the world</h1> \
+{{content}} \
+</body></html>";
+
+static const char loginPage[] = " \
+<form action=\'/login\'> \
+  <label for=\'username\'>User name: </label> \
+  <input type=\'text\' id=\'username\' name=\'username\'><br><br> \
+  <label for=\'password\'>Password: </label> \
+  <input type=\'password\' id=\'password\' name=\'password\'><br><br> \
+  <input type=\'submit\' value=\'Login\'> \
+</form>";
+
+static const char homePage[] = " \
+<strong style='font-size: 19px;'>GPIO is now {{gpio_now}}</strong><br><br> \
+Click <a href='http://{{ip}}/gpio?on={{gpio_action}}&token={{token}}'>here</a> to switch LED GPIO {{gpio_text}}<br><br> \
+<table class='table'> \
+  <tr bgcolor='#A7C7E7'> \
+    <th>Country</th><th>Temperature</th><th>Humidity</th><th>Wind Speed</th><th>Power watts</th> \
+  </tr> \
+  <tr> \
+    <td>USA</td><td>24C</td><td>78%</td><td>5km/h</td><td>100kW</td> \
+  </tr> \
+  <tr> \
+    <td>Sri Lanka</td><td>33C</td><td>73%</td><td>2km/h</td><td>32kW</td> \
+  </tr> \
+  <tr> \
+    <td>Fiji</td><td>15C</td><td>88%</td><td>12km/h</td><td>120kW</td> \
+  </tr> \
+</table>";
+
+void loadLogin(){
+  String page = layoutPage;
+  page.replace("{{content}}", loginPage);
+  server.send(200, "text/html", page);
+}
+
+void loadMain(bool gpio_stat, String token){
+  String gpio_now = (gpio_stat) ? "<span class='state-high'>HIGH</span>" : "<span class='state-low'>LOW</span>";
+  bool gpio_action = (gpio_stat) ? LOW : HIGH;
+  String gpio_text = (gpio_stat) ? "OFF" : "ON";
+  
+  String page = layoutPage;
+  page.replace("{{content}}", homePage);
+  
+  page.replace("{{ip}}", WiFi.localIP().toString().c_str());
+  page.replace("{{token}}", token);
+  page.replace("{{gpio_now}}", gpio_now);
+  page.replace("{{gpio_action}}", String(gpio_action));
+  page.replace("{{gpio_text}}", gpio_text);
+  server.send(200, "text/html", page);
+}
